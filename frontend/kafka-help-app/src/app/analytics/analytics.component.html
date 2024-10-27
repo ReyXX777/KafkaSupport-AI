@@ -1,0 +1,49 @@
+<div class="analytics-container">
+  <h1>Kafka Analytics Dashboard</h1>
+
+  <!-- Summary Section -->
+  <section class="summary">
+    <div class="summary-card" *ngFor="let metric of metrics">
+      <h3>{{ metric.title }}</h3>
+      <p>{{ metric.value }}</p>
+      <span class="metric-description">{{ metric.description }}</span>
+    </div>
+  </section>
+
+  <!-- Real-time Kafka Metrics -->
+  <section class="real-time-metrics">
+    <h2>Real-time Kafka Metrics</h2>
+    <div *ngIf="loading" class="loading-indicator">
+      <p>Loading data...</p>
+    </div>
+    <table *ngIf="!loading && kafkaData.length > 0">
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Messages Sent</th>
+          <th>Messages Received</th>
+          <th>Errors</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let data of kafkaData">
+          <td>{{ data.topic }}</td>
+          <td>{{ data.messagesSent }}</td>
+          <td>{{ data.messagesReceived }}</td>
+          <td>{{ data.errors }}</td>
+          <td>{{ data.timestamp | date: 'short' }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div *ngIf="!loading && kafkaData.length === 0">
+      <p>No data available</p>
+    </div>
+  </section>
+
+  <!-- Graphical Analytics (Example with Kafka Message Rates) -->
+  <section class="chart-section">
+    <h2>Message Rate Over Time</h2>
+    <canvas id="messageRateChart"></canvas>
+  </section>
+</div>
