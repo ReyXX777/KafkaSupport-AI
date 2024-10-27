@@ -1,0 +1,31 @@
+<div class="activity-container">
+  <h1>Recent Activity</h1>
+
+  <!-- Activity List -->
+  <div class="activity-list">
+    <!-- Activity Card -->
+    <div class="activity-card" *ngFor="let activity of activities">
+      <div class="activity-card-header">
+        <span class="activity-title">{{ activity.title }}</span>
+        <span class="activity-timestamp">{{ activity.timestamp | date: 'short' }}</span>
+      </div>
+
+      <div class="activity-details">
+        <span class="activity-type">{{ activity.type }}</span> - {{ activity.description }}
+      </div>
+
+      <!-- Divider -->
+      <div class="activity-divider"></div>
+
+      <!-- Additional Information (if any) -->
+      <div *ngIf="activity.details">
+        <p>{{ activity.details }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Activity Message -->
+  <div *ngIf="activities.length === 0" class="no-activity-message">
+    <p>No recent activity available.</p>
+  </div>
+</div>
