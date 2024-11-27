@@ -20,5 +20,3 @@ class BrokerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Broker
         fields = '__all__'
-
-  
