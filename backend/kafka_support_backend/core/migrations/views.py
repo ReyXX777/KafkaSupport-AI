@@ -45,4 +45,3 @@ class YourModelViewSet(viewsets.ModelViewSet):
         your_model = get_object_or_404(queryset, pk=pk)
         serializer = self.get_serializer(your_model)
         return JsonResponse(serializer.data)
-
