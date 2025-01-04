@@ -3,7 +3,7 @@ from django.views import View
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 import json
-from .activity_service import ActivityService
+from .activity_service import ActivityService  # Ensure activity_service.py exists and contains the necessary methods.
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ActivityView(View):
@@ -27,6 +27,9 @@ class ActivityView(View):
         """
         try:
             body = json.loads(request.body)
+            if not body:
+                return JsonResponse({"status": "error", "message": "Request body is empty"}, status=400)
+            
             new_activity = ActivityService.create_activity(body)
             return JsonResponse({"status": "success", "data": new_activity}, status=201)
         except json.JSONDecodeError:
@@ -42,8 +45,11 @@ class ActivityView(View):
             activity_id = kwargs.get('activity_id')
             if not activity_id:
                 return JsonResponse({"status": "error", "message": "Activity ID is required"}, status=400)
-            
+
             body = json.loads(request.body)
+            if not body:
+                return JsonResponse({"status": "error", "message": "Request body is empty"}, status=400)
+            
             updated_activity = ActivityService.update_activity(activity_id, body)
             return JsonResponse({"status": "success", "data": updated_activity}, status=200)
         except json.JSONDecodeError:
