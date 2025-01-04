@@ -24,15 +24,12 @@ class ActivityService:
             activity_id (int): The ID of the activity to retrieve.
 
         Returns:
-            dict: The activity dictionary if found.
-
-        Raises:
-            ValueError: If the activity with the given ID is not found.
+            dict: The activity dictionary if found, or None if not found.
         """
-        for activity in ActivityService.activities:
-            if activity["id"] == activity_id:
-                return activity
-        raise ValueError(f"Activity with id {activity_id} not found.")
+        activity = next((act for act in ActivityService.activities if act["id"] == activity_id), None)
+        if activity is None:
+            raise ValueError(f"Activity with id {activity_id} not found.")
+        return activity
 
     @staticmethod
     def create_activity(activity_data):
@@ -44,13 +41,17 @@ class ActivityService:
 
         Returns:
             dict: The newly created activity.
+
+        Raises:
+            ValueError: If required fields are missing.
         """
         if not activity_data.get("name"):
             raise ValueError("Activity name is required.")
         if not activity_data.get("description"):
             raise ValueError("Activity description is required.")
 
-        activity_id = len(ActivityService.activities) + 1
+        # Generate a unique ID for the new activity
+        activity_id = (ActivityService.activities[-1]["id"] + 1) if ActivityService.activities else 1
         activity = {
             "id": activity_id,
             "name": activity_data.get("name"),
@@ -76,10 +77,9 @@ class ActivityService:
         """
         for activity in ActivityService.activities:
             if activity["id"] == activity_id:
+                # Update only fields provided in `activity_data`
                 activity["name"] = activity_data.get("name", activity["name"])
-                activity["description"] = activity_data.get(
-                    "description", activity["description"]
-                )
+                activity["description"] = activity_data.get("description", activity["description"])
                 return activity
         raise ValueError(f"Activity with id {activity_id} not found.")
 
@@ -91,11 +91,15 @@ class ActivityService:
         Args:
             activity_id (int): The ID of the activity to delete.
 
+        Returns:
+            dict: Confirmation message upon successful deletion.
+
         Raises:
             ValueError: If the activity with the given ID is not found.
         """
-        for activity in ActivityService.activities:
-            if activity["id"] == activity_id:
-                ActivityService.activities.remove(activity)
-                return {"message": f"Activity with id {activity_id} deleted successfully."}
-        raise ValueError(f"Activity with id {activity_id} not found.")
+        activity = next((act for act in ActivityService.activities if act["id"] == activity_id), None)
+        if activity is None:
+            raise ValueError(f"Activity with id {activity_id} not found.")
+        
+        ActivityService.activities.remove(activity)
+        return {"message": f"Activity with id {activity_id} deleted successfully."}
