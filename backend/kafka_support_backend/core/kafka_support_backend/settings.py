@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",  # Django REST framework
+    "corsheaders",  # Enable CORS handling
     "activity",  # Custom activity app
 ]
 
@@ -29,6 +30,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # Add CORS middleware
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -62,8 +64,12 @@ WSGI_APPLICATION = "kafka_support_backend.wsgi.application"
 # Database configuration
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",  # Replace with production DB engine
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": os.environ.get("DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.environ.get("DB_NAME", BASE_DIR / "db.sqlite3"),
+        "USER": os.environ.get("DB_USER", ""),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", ""),
     }
 }
 
@@ -85,14 +91,14 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization settings
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "UTC")
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, images)
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media files (user-uploaded content)
 MEDIA_URL = "/media/"
@@ -109,7 +115,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",  # Parse incoming JSON
     ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",  # Default permission
+    ],
 }
+
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allow all origins in development
+CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")  # For production
 
 # Logging configuration (optional but recommended)
 LOGGING = {
@@ -133,7 +146,7 @@ LOGGING = {
     },
     "root": {
         "handlers": ["console"],
-        "level": "INFO",
+        "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO"),
     },
 }
 
@@ -141,7 +154,8 @@ LOGGING = {
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_HSTS_SECONDS = 31536000  # Enable HSTS for one year
-    SECURE_SSL_REDIRECT = True  # Redirect HTTP to HTTPS
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))  # Enable HSTS
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True") == "True"
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = "DENY"  # Prevent clickjacking
