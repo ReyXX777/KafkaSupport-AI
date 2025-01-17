@@ -1,3 +1,5 @@
+# commit message: Added Kafka integration and enhanced security settings
+
 import os
 from pathlib import Path
 
@@ -24,6 +26,7 @@ INSTALLED_APPS = [
     "rest_framework",  # Django REST framework
     "corsheaders",  # Enable CORS handling
     "activity",  # Custom activity app
+    "kafka_integration",  # Kafka integration app
 ]
 
 # Middleware stack
@@ -150,6 +153,10 @@ LOGGING = {
     },
 }
 
+# Kafka configuration
+KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+KAFKA_ACTIVITY_TOPIC = os.environ.get("KAFKA_ACTIVITY_TOPIC", "activity_topic")
+
 # Security settings for production
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
@@ -159,3 +166,5 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     X_FRAME_OPTIONS = "DENY"  # Prevent clickjacking
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
