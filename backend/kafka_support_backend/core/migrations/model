@@ -1,8 +1,126 @@
+# commit message: Added custom admin configurations and export functionality for Kafka models
+
 from django.contrib import admin
 from .models import KafkaCluster, Topic, ConsumerGroup, Broker
+from django.http import HttpResponse
+import csv
 
-# Register your models here.
-admin.site.register(KafkaCluster)
-admin.site.register(Topic)
-admin.site.register(ConsumerGroup)
-admin.site.register(Broker)
+# Custom admin class for KafkaCluster
+@admin.register(KafkaCluster)
+class KafkaClusterAdmin(admin.ModelAdmin):
+    list_display = ('name', 'version', 'location', 'is_active')
+    list_filter = ('location', 'is_active')
+    search_fields = ('name',)
+    ordering = ('name',)
+    actions = ['export_to_csv', 'activate_clusters']
+
+    def export_to_csv(self, request, queryset):
+        """
+        Export selected Kafka clusters to CSV.
+        """
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="kafka_clusters.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Version', 'Location', 'Is Active'])
+        for cluster in queryset:
+            writer.writerow([cluster.name, cluster.version, cluster.location, cluster.is_active])
+        return response
+    export_to_csv.short_description = "Export selected clusters to CSV"
+
+    def activate_clusters(self, request, queryset):
+        """
+        Activate selected Kafka clusters.
+        """
+        queryset.update(is_active=True)
+        self.message_user(request, f"Activated {queryset.count()} clusters.")
+    activate_clusters.short_description = "Activate selected clusters"
+
+# Custom admin class for Topic
+@admin.register(Topic)
+class TopicAdmin(admin.ModelAdmin):
+    list_display = ('name', 'cluster', 'partitions', 'replication_factor', 'is_active')
+    list_filter = ('cluster', 'is_active')
+    search_fields = ('name',)
+    ordering = ('name',)
+    actions = ['export_to_csv', 'deactivate_topics']
+
+    def export_to_csv(self, request, queryset):
+        """
+        Export selected topics to CSV.
+        """
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="topics.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Cluster', 'Partitions', 'Replication Factor', 'Is Active'])
+        for topic in queryset:
+            writer.writerow([topic.name, topic.cluster.name, topic.partitions, topic.replication_factor, topic.is_active])
+        return response
+    export_to_csv.short_description = "Export selected topics to CSV"
+
+    def deactivate_topics(self, request, queryset):
+        """
+        Deactivate selected topics.
+        """
+        queryset.update(is_active=False)
+        self.message_user(request, f"Deactivated {queryset.count()} topics.")
+    deactivate_topics.short_description = "Deactivate selected topics"
+
+# Custom admin class for ConsumerGroup
+@admin.register(ConsumerGroup)
+class ConsumerGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'topic', 'offset', 'is_active')
+    list_filter = ('topic', 'is_active')
+    search_fields = ('name',)
+    ordering = ('name',)
+    actions = ['export_to_csv', 'reset_offsets']
+
+    def export_to_csv(self, request, queryset):
+        """
+        Export selected consumer groups to CSV.
+        """
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="consumer_groups.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Name', 'Topic', 'Offset', 'Is Active'])
+        for group in queryset:
+            writer.writerow([group.name, group.topic.name, group.offset, group.is_active])
+        return response
+    export_to_csv.short_description = "Export selected consumer groups to CSV"
+
+    def reset_offsets(self, request, queryset):
+        """
+        Reset offsets for selected consumer groups.
+        """
+        queryset.update(offset=0)
+        self.message_user(request, f"Reset offsets for {queryset.count()} consumer groups.")
+    reset_offsets.short_description = "Reset offsets for selected groups"
+
+# Custom admin class for Broker
+@admin.register(Broker)
+class BrokerAdmin(admin.ModelAdmin):
+    list_display = ('host', 'port', 'cluster', 'is_active')
+    list_filter = ('cluster', 'is_active')
+    search_fields = ('host',)
+    ordering = ('host',)
+    actions = ['export_to_csv', 'deactivate_brokers']
+
+    def export_to_csv(self, request, queryset):
+        """
+        Export selected brokers to CSV.
+        """
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="brokers.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Host', 'Port', 'Cluster', 'Is Active'])
+        for broker in queryset:
+            writer.writerow([broker.host, broker.port, broker.cluster.name, broker.is_active])
+        return response
+    export_to_csv.short_description = "Export selected brokers to CSV"
+
+    def deactivate_brokers(self, request, queryset):
+        """
+        Deactivate selected brokers.
+        """
+        queryset.update(is_active=False)
+        self.message_user(request, f"Deactivated {queryset.count()} brokers.")
+    deactivate_brokers.short_description = "Deactivate selected brokers"
