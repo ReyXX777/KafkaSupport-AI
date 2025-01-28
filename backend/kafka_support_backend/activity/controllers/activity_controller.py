@@ -1,5 +1,3 @@
-# commit message: Added logging and validation components to ActivityView
-
 from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
@@ -25,6 +23,10 @@ class ActivityView(View):
         for field in required_fields:
             if field not in data:
                 return False, f"Missing required field: {field}"
+            if not isinstance(data[field], str):
+                return False, f"Field '{field}' must be a string"
+            if len(data[field]) > 255:  # Example length validation
+                return False, f"Field '{field}' exceeds maximum length of 255 characters"
         return True, ""
 
     def get(self, request, *args, **kwargs):
@@ -36,8 +38,8 @@ class ActivityView(View):
             logger.info("Successfully fetched all activities")
             return JsonResponse({"status": "success", "data": activities}, status=200)
         except Exception as e:
-            logger.error(f"Failed to fetch activities: {str(e)}")
-            return JsonResponse({"status": "error", "message": f"Failed to fetch activities: {str(e)}"}, status=500)
+            logger.error(f"Failed to fetch activities: {str(e)}", exc_info=True)
+            return JsonResponse({"status": "error", "message": "An internal error occurred"}, status=500)
 
     def post(self, request, *args, **kwargs):
         """
@@ -61,8 +63,8 @@ class ActivityView(View):
             logger.error("Invalid JSON data")
             return JsonResponse({"status": "error", "message": "Invalid JSON data"}, status=400)
         except Exception as e:
-            logger.error(f"Failed to create activity: {str(e)}")
-            return JsonResponse({"status": "error", "message": f"Failed to create activity: {str(e)}"}, status=500)
+            logger.error(f"Failed to create activity: {str(e)}", exc_info=True)
+            return JsonResponse({"status": "error", "message": "An internal error occurred"}, status=500)
 
     def put(self, request, *args, **kwargs):
         """
@@ -91,8 +93,8 @@ class ActivityView(View):
             logger.error("Invalid JSON data")
             return JsonResponse({"status": "error", "message": "Invalid JSON data"}, status=400)
         except Exception as e:
-            logger.error(f"Failed to update activity: {str(e)}")
-            return JsonResponse({"status": "error", "message": f"Failed to update activity: {str(e)}"}, status=500)
+            logger.error(f"Failed to update activity: {str(e)}", exc_info=True)
+            return JsonResponse({"status": "error", "message": "An internal error occurred"}, status=500)
 
     def delete(self, request, *args, **kwargs):
         """
@@ -108,5 +110,5 @@ class ActivityView(View):
             logger.info(f"Successfully deleted activity with ID: {activity_id}")
             return JsonResponse({"status": "success", "message": "Activity deleted successfully"}, status=200)
         except Exception as e:
-            logger.error(f"Failed to delete activity: {str(e)}")
-            return JsonResponse({"status": "error", "message": f"Failed to delete activity: {str(e)}"}, status=500)
+            logger.error(f"Failed to delete activity: {str(e)}", exc_info=True)
+            return JsonResponse({"status": "error", "message": "An internal error occurred"}, status=500)
