@@ -1,4 +1,4 @@
-# commit message: Added export functionality and custom admin actions
+# commit message: Added export functionality, custom admin actions, advanced fieldsets, bulk actions, and admin panel customizations
 
 from django.contrib import admin
 from .models import YourModel1, YourModel2, YourModel3
@@ -11,11 +11,12 @@ class YourModel1Admin(admin.ModelAdmin):
     """
     Custom admin configuration for YourModel1.
     """
-    list_display = ('field1', 'field2', 'field3')  # Fields displayed in the list view
+    list_display = ('field1', 'field2', 'field3', 'created_at')  # Fields displayed in the list view
     search_fields = ('field1', 'field2')  # Fields to search
-    list_filter = ('field3',)  # Fields to filter
-    ordering = ('field1',)  # Default ordering in admin list view
+    list_filter = ('field3', 'created_at')  # Fields to filter
+    ordering = ('-created_at',)  # Default ordering (newest first)
     readonly_fields = ('created_at',)  # Fields that cannot be edited in the admin
+    list_per_page = 20  # Number of items per page
 
     # Add export to CSV action
     actions = ['export_to_csv']
@@ -45,6 +46,7 @@ class YourModel2Admin(admin.ModelAdmin):
     ordering = ('-created_at',)  # Default ordering (newest first)
     readonly_fields = ('created_at', 'updated_at')  # Fields that cannot be edited in the admin
     list_editable = ('is_active',)  # Enable inline editing for specific fields
+    list_per_page = 20  # Number of items per page
 
     # Add custom admin action to toggle active status
     actions = ['toggle_active_status']
@@ -71,6 +73,7 @@ class YourModel3Admin(admin.ModelAdmin):
     ordering = ('-updated_at',)  # Default ordering (newest first)
     readonly_fields = ('created_at',)  # Fields that cannot be edited in the admin
     prepopulated_fields = {'slug': ('title',)}  # Automatically generate slug based on title
+    list_per_page = 20  # Number of items per page
 
     # Add advanced fieldsets for better organization
     fieldsets = (
@@ -93,7 +96,19 @@ class YourModel3Admin(admin.ModelAdmin):
         self.message_user(request, f"Marked {queryset.count()} records as published.")
     mark_as_published.short_description = "Mark selected as published"
 
+    # Add bulk update action
+    actions = ['mark_as_published', 'bulk_update_status']
+
+    def bulk_update_status(self, request, queryset):
+        """
+        Custom admin action to bulk update the status of selected records.
+        """
+        queryset.update(status='updated')
+        self.message_user(request, f"Updated status for {queryset.count()} records.")
+    bulk_update_status.short_description = "Bulk update status"
+
 # Additional customizations
 admin.site.site_header = "Your Project Admin Dashboard"  # Admin panel header
 admin.site.site_title = "Your Project Admin"  # Admin panel title
 admin.site.index_title = "Welcome to Your Project Admin Panel"  # Admin panel index title
+admin.site.empty_value_display = "N/A"  # Display "N/A" for empty fields
