@@ -6,6 +6,11 @@ from django.shortcuts import get_object_or_404
 import json
 import logging
 from .activity_service import ActivityService  # Ensure ActivityService is implemented correctly.
+from .models import Activity  # Assuming Activity model exists
+from .serializers import ActivitySerializer  # Assuming ActivitySerializer exists
+from .permissions import IsAdminUser  # Custom permission class for admin-only access
+from .utils import send_email_notification  # Utility function for sending email notifications
+from .cache import cache_activity_data  # Utility function for caching activity data
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -32,6 +37,10 @@ class ActivityModule(View):
         for field in required_fields:
             if field not in data:
                 return False, f"Missing required field: {field}"
+            if not isinstance(data[field], str):
+                return False, f"Field '{field}' must be a string"
+            if len(data[field]) > 255:  # Example length validation
+                return False, f"Field '{field}' exceeds maximum length of 255 characters"
         return True, ""
 
     def get(self, request, *args, **kwargs):
@@ -43,13 +52,17 @@ class ActivityModule(View):
             if activity_id:
                 # Fetch a specific activity by ID
                 activity = get_object_or_404(ActivityService.get_activity_by_id(activity_id))
+                serializer = ActivitySerializer(activity)
                 logger.info(f"Successfully fetched activity with ID: {activity_id}")
-                return JsonResponse({"status": "success", "data": activity}, status=200)
+                return JsonResponse({"status": "success", "data": serializer.data}, status=200)
 
             # Fetch all activities
-            activities = ActivityService.get_all_activities()
+            activities = cache_activity_data()  # Cache activity data for performance
+            if not activities:
+                activities = ActivityService.get_all_activities()
+            serializer = ActivitySerializer(activities, many=True)
             logger.info("Successfully fetched all activities")
-            return JsonResponse({"status": "success", "data": activities}, status=200)
+            return JsonResponse({"status": "success", "data": serializer.data}, status=200)
         except Exception as e:
             logger.error(f"Error retrieving activities: {str(e)}")
             return HttpResponseServerError({"status": "error", "message": f"Error retrieving activities: {str(e)}"})
@@ -59,6 +72,9 @@ class ActivityModule(View):
         Handles POST requests to create a new activity.
         """
         try:
+            if not IsAdminUser.has_permission(request):
+                return JsonResponse({"status": "error", "message": "Unauthorized: Admin access required"}, status=403)
+
             body = json.loads(request.body)
             if not body:
                 logger.warning("Request body is empty")
@@ -70,6 +86,7 @@ class ActivityModule(View):
                 return HttpResponseBadRequest({"status": "error", "message": validation_message})
             
             new_activity = ActivityService.create_activity(body)
+            send_email_notification(f"New activity created: {new_activity['name']}")
             logger.info("Successfully created a new activity")
             return JsonResponse({"status": "success", "data": new_activity}, status=201)
         except json.JSONDecodeError:
@@ -84,6 +101,9 @@ class ActivityModule(View):
         Handles PUT requests to update an existing activity by ID.
         """
         try:
+            if not IsAdminUser.has_permission(request):
+                return JsonResponse({"status": "error", "message": "Unauthorized: Admin access required"}, status=403)
+
             activity_id = kwargs.get('activity_id')
             if not activity_id:
                 logger.warning("Activity ID is required")
@@ -104,6 +124,7 @@ class ActivityModule(View):
                 logger.warning(f"Activity not found with ID: {activity_id}")
                 return HttpResponseNotFound({"status": "error", "message": "Activity not found"})
             
+            send_email_notification(f"Activity updated: {updated_activity['name']}")
             logger.info(f"Successfully updated activity with ID: {activity_id}")
             return JsonResponse({"status": "success", "data": updated_activity}, status=200)
         except json.JSONDecodeError:
@@ -118,16 +139,25 @@ class ActivityModule(View):
         Handles DELETE requests to remove an activity by ID.
         """
         try:
+            if not IsAdminUser.has_permission(request):
+                return JsonResponse({"status": "error", "message": "Unauthorized: Admin access required"}, status=403)
+
             activity_id = kwargs.get('activity_id')
             if not activity_id:
                 logger.warning("Activity ID is required")
                 return HttpResponseBadRequest({"status": "error", "message": "Activity ID is required"})
             
-            success = ActivityService.delete_activity(activity_id)
-            if not success:
+            activity = ActivityService.get_activity_by_id(activity_id)
+            if not activity:
                 logger.warning(f"Activity not found with ID: {activity_id}")
                 return HttpResponseNotFound({"status": "error", "message": "Activity not found"})
             
+            success = ActivityService.delete_activity(activity_id)
+            if not success:
+                logger.warning(f"Failed to delete activity with ID: {activity_id}")
+                return HttpResponseServerError({"status": "error", "message": "Failed to delete activity"})
+            
+            send_email_notification(f"Activity deleted: {activity['name']}")
             logger.info(f"Successfully deleted activity with ID: {activity_id}")
             return JsonResponse({"status": "success", "message": "Activity deleted successfully"}, status=200)
         except Exception as e:
