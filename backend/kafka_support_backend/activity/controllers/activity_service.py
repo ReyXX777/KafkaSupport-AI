@@ -1,6 +1,8 @@
-# commit message: Added activity validation and logging components to ActivityService
 
 import logging
+from .cache import cache_activity_data  # Utility function for caching activity data
+from .serializers import ActivitySerializer  # Assuming ActivitySerializer exists
+from .notifications import send_notification  # Utility function for sending notifications
 
 class ActivityService:
     """
@@ -27,6 +29,10 @@ class ActivityService:
         for field in required_fields:
             if not activity_data.get(field):
                 return False, f"Missing required field: {field}"
+            if not isinstance(activity_data[field], str):
+                return False, f"Field '{field}' must be a string"
+            if len(activity_data[field]) > 255:  # Example length validation
+                return False, f"Field '{field}' exceeds maximum length of 255 characters"
         return True, ""
 
     @staticmethod
@@ -38,7 +44,12 @@ class ActivityService:
             list: A list of all activity dictionaries.
         """
         ActivityService.logger.info("Retrieving all activities")
-        return ActivityService.activities
+        cached_activities = cache_activity_data()  # Check for cached data
+        if cached_activities:
+            return cached_activities
+        activities = ActivityService.activities
+        serializer = ActivitySerializer(activities, many=True)
+        return serializer.data
 
     @staticmethod
     def get_activity_by_id(activity_id):
@@ -59,7 +70,8 @@ class ActivityService:
         if activity is None:
             ActivityService.logger.error(f"Activity with ID {activity_id} not found")
             raise ValueError(f"Activity with id {activity_id} not found.")
-        return activity
+        serializer = ActivitySerializer(activity)
+        return serializer.data
 
     @staticmethod
     def create_activity(activity_data):
@@ -89,8 +101,10 @@ class ActivityService:
             "description": activity_data.get("description"),
         }
         ActivityService.activities.append(activity)
+        send_notification(f"New activity created: {activity['name']}")
         ActivityService.logger.info(f"Successfully created activity with ID: {activity_id}")
-        return activity
+        serializer = ActivitySerializer(activity)
+        return serializer.data
 
     @staticmethod
     def update_activity(activity_id, activity_data):
@@ -113,8 +127,10 @@ class ActivityService:
                 # Update only fields provided in `activity_data`
                 activity["name"] = activity_data.get("name", activity["name"])
                 activity["description"] = activity_data.get("description", activity["description"])
+                send_notification(f"Activity updated: {activity['name']}")
                 ActivityService.logger.info(f"Successfully updated activity with ID: {activity_id}")
-                return activity
+                serializer = ActivitySerializer(activity)
+                return serializer.data
         ActivityService.logger.error(f"Activity with ID {activity_id} not found")
         raise ValueError(f"Activity with id {activity_id} not found.")
 
@@ -139,5 +155,6 @@ class ActivityService:
             raise ValueError(f"Activity with id {activity_id} not found.")
         
         ActivityService.activities.remove(activity)
+        send_notification(f"Activity deleted: {activity['name']}")
         ActivityService.logger.info(f"Successfully deleted activity with ID: {activity_id}")
         return {"message": f"Activity with id {activity_id} deleted successfully."}
