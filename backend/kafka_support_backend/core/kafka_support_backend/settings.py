@@ -1,7 +1,17 @@
-# commit message: Added Kafka integration and enhanced security settings
+# commit message: Added Kafka integration, enhanced security settings, Redis caching, Sentry error tracking, and custom middleware
 
 import os
 from pathlib import Path
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
+# Initialize Sentry for error tracking
+sentry_sdk.init(
+    dsn=os.environ.get("SENTRY_DSN"),
+    integrations=[DjangoIntegration()],
+    traces_sample_rate=1.0,
+    send_default_pii=True,
+)
 
 # Base directory of the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,6 +37,7 @@ INSTALLED_APPS = [
     "corsheaders",  # Enable CORS handling
     "activity",  # Custom activity app
     "kafka_integration",  # Kafka integration app
+    "redis_cache",  # Redis caching
 ]
 
 # Middleware stack
@@ -39,6 +50,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "kafka_support_backend.middleware.CustomHeaderMiddleware",  # Custom middleware
 ]
 
 # URL configuration
@@ -73,6 +85,17 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", ""),
+    }
+}
+
+# Redis caching configuration
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
     }
 }
 
@@ -121,6 +144,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",  # Default permission
     ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",  # Rate limiting for anonymous users
+        "user": "1000/day",  # Rate limiting for authenticated users
+    },
 }
 
 # CORS settings
@@ -146,9 +173,13 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        "sentry": {
+            "level": "ERROR",
+            "class": "sentry_sdk.integrations.logging.EventHandler",
+        },
     },
     "root": {
-        "handlers": ["console"],
+        "handlers": ["console", "sentry"],
         "level": os.environ.get("DJANGO_LOG_LEVEL", "INFO"),
     },
 }
