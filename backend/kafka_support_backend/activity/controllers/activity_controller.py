@@ -5,6 +5,10 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import logging
 from .activity_service import ActivityService  # Ensure activity_service.py exists and contains the necessary methods.
+from .models import Activity  # Assuming Activity model exists
+from .serializers import ActivitySerializer  # Assuming ActivitySerializer exists
+from .permissions import IsAuthenticated  # Custom permission class
+from .utils import send_notification  # Utility function for sending notifications
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -35,8 +39,9 @@ class ActivityView(View):
         """
         try:
             activities = ActivityService.get_all_activities()
+            serializer = ActivitySerializer(activities, many=True)
             logger.info("Successfully fetched all activities")
-            return JsonResponse({"status": "success", "data": activities}, status=200)
+            return JsonResponse({"status": "success", "data": serializer.data}, status=200)
         except Exception as e:
             logger.error(f"Failed to fetch activities: {str(e)}", exc_info=True)
             return JsonResponse({"status": "error", "message": "An internal error occurred"}, status=500)
@@ -46,6 +51,9 @@ class ActivityView(View):
         Create a new activity.
         """
         try:
+            if not IsAuthenticated.has_permission(request):
+                return JsonResponse({"status": "error", "message": "Unauthorized"}, status=401)
+
             body = json.loads(request.body)
             if not body:
                 logger.warning("Request body is empty")
@@ -57,6 +65,7 @@ class ActivityView(View):
                 return JsonResponse({"status": "error", "message": validation_message}, status=400)
             
             new_activity = ActivityService.create_activity(body)
+            send_notification(f"New activity created: {new_activity['name']}")
             logger.info("Successfully created a new activity")
             return JsonResponse({"status": "success", "data": new_activity}, status=201)
         except json.JSONDecodeError:
@@ -71,6 +80,9 @@ class ActivityView(View):
         Update an existing activity identified by `activity_id`.
         """
         try:
+            if not IsAuthenticated.has_permission(request):
+                return JsonResponse({"status": "error", "message": "Unauthorized"}, status=401)
+
             activity_id = kwargs.get('activity_id')
             if not activity_id:
                 logger.warning("Activity ID is required")
@@ -87,6 +99,7 @@ class ActivityView(View):
                 return JsonResponse({"status": "error", "message": validation_message}, status=400)
             
             updated_activity = ActivityService.update_activity(activity_id, body)
+            send_notification(f"Activity updated: {updated_activity['name']}")
             logger.info(f"Successfully updated activity with ID: {activity_id}")
             return JsonResponse({"status": "success", "data": updated_activity}, status=200)
         except json.JSONDecodeError:
@@ -101,12 +114,17 @@ class ActivityView(View):
         Delete an activity identified by `activity_id`.
         """
         try:
+            if not IsAuthenticated.has_permission(request):
+                return JsonResponse({"status": "error", "message": "Unauthorized"}, status=401)
+
             activity_id = kwargs.get('activity_id')
             if not activity_id:
                 logger.warning("Activity ID is required")
                 return JsonResponse({"status": "error", "message": "Activity ID is required"}, status=400)
 
+            activity = ActivityService.get_activity_by_id(activity_id)
             ActivityService.delete_activity(activity_id)
+            send_notification(f"Activity deleted: {activity['name']}")
             logger.info(f"Successfully deleted activity with ID: {activity_id}")
             return JsonResponse({"status": "success", "message": "Activity deleted successfully"}, status=200)
         except Exception as e:
